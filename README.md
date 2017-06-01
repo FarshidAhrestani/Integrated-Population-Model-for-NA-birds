@@ -1,88 +1,92 @@
 # JAGS-code-for-IPM-model-for-NA-birds
 JAGS code used to model population dynamics of N.American birds by integrating Breeding Bird Survey (BBS) and Monitoring Avian Productivity and Survivorship (MAPS) data
     model{
-
-#########################################################################
-# IPM - Integrated Population Model for BBS & MAPS data            			
-#########################################################################
-
-#######################################################################
-# 1. Define priors
-#######################################################################
-  
-#-----------------------------------------------------------------------------#
-# Priors for the BBS model
-#-----------------------------------------------------------------------------#
-
-# Observer effects
-for(i in 1 : nobservers) {
-obs[i] ~ dnorm(0.0,tauobs)
-} #i
     
-# Observer Novice effect 
-eta ~ dnorm(0.0,1.0E-6)
-tauobs ~ dgamma(0.001,0.001)
-sdobs <- 1 / pow(tauobs, 0.5)
+    #######################################################################
+    # Integrated Population Model for BBS & MAPS data                     #
+    #                                                                     #
+    # this version has spatially-constant demographic rates               #
+    #######################################################################
+    
+    #######################################################################
+    # 1. Define priors
+    #######################################################################
+    
+    #----------------------------------------------------------------------
+    # Priors for BBS model
+    #----------------------------------------------------------------------
+    
+    # Observer effect
+    for(i in 1 : nobservers) {
+    	obs[i] ~ dnorm(0.0,tauobs)
+    } #i
+    
+    # Observer novice effect
+    eta ~ dnorm(0.0,1.0E-6)
+    tauobs ~ dgamma(0.001,0.001)
+    sdobs <- 1 / pow(tauobs, 0.5)
 
-# Initial population size
-for (s in 1:nstrata){
-n1[s] ~ dunif(0,50)
+    # initial population size
+    for (s in 1:nstrata){
+    	n1[s] ~ dunif(0,50)
     	ntot[1,s] ~ dpois(n1[s])
-} #s
+    } #s
     
-# overdispersion
-for (k in 1:ncounts){
-noise[k] ~ dnorm(0.0, taunoise)
-}
+    # overdispersion
+    for (k in 1:ncounts){
+    	noise[k] ~ dnorm(0.0, taunoise)
+    }
 
-taunoise ~ dgamma(0.001,0.001)
-sdnoise <- 1 / pow(taunoise, 0.5)
-#-----------------------------------------------------------------------
-# Priors for MAPS CJS model 
-#-----------------------------------------------------------------------
-# year-specific intercepts for survival (phi), residency (pi),
-# prob. of predetermining a resident (rho), and recapture prob. (p)
-for(t in 1:nyears-1){
+    taunoise ~ dgamma(0.001,0.001)
+    sdnoise <- 1 / pow(taunoise, 0.5)
+
+    #-----------------------------------------------------------------------
+    # Priors for MAPS CJS model 
+    #-----------------------------------------------------------------------
+
+    #### year-specific intercepts for survival (phi), residency (pi),
+    #### prob.of predetermining a resident (rho), and recapture prob. (p)
+    for(t in 1:nyears-1){
     	p0[t] ~ dunif(0,1) # Priors for mean recapture probability
     	lp0[t] <- log(p0[t]/(1-p0[t])) # Logit transformation of recapture probability 
     	phi0[t] ~ dunif(0,1) # Priors for mean survival probability
     	lphi0[t] <- log(phi0[t]/(1-phi0[t])) # Logit transformation of survival probability
-    	pi0[t] ~ dunif(0,1) # Priors for residency probability                       
-    	lpi0[t] <- log(pi0[t]/(1-pi0[t])) # 	
-    	rho0[t] ~ dunif(0,1) # Priors for probability of predetermining a resident                  
-    	lrho0[t] <- log(rho0[t]/(1-rho0[t])) # Logit transformation of predetermining a resident                  
-}#t
+    	rho0[t] ~ dunif(0,1) # Priors for residency probability                       
+    	lrho0[t] <- log(rho0[t]/(1-rho0[t]))
+    	pi0[t] ~ dunif(0,1) 
+    	lpi0[t] <- log(pi0[t]/(1-pi0[t]))
+    }#t
     
-# random station effects for p model #
-sigma.p ~ dunif(0, 10)
-tau.p  <- pow(sigma.p, -2)
-for(j in 1:nsta){
+    #### random station effects for p model ####
+    sigma.p ~ dunif(0, 10)
+    tau.p  <- pow(sigma.p, -2)
+    for(j in 1:nsta){
     	alpha[j] ~ dnorm(0,tau.p)
-}#j
-
-#------------------------------------------------------------
-# Recruitment (not informed by data here) 
-#------------------------------------------------------------
+    }#j
     
-for (t in 1:nyears-1) {
+    #------------------------------------------------------------
+    # Recruitment (not informed by data here) 
+    #------------------------------------------------------------
+    
+    for (t in 1:nyears-1) {
     	f[t] ~ dunif(0,10)
-}#t
-
-#############################################################
-# 2. Likelihood for the BBS data 
-#############################################################
+    }#t
     
-for (k in 1:ncounts){
-log(lambda[k]) <- log(ntot[year[k],strat[k]]) + obs[obser[k]] + eta*firstyr[k] + noise[k]
+    #############################################################
+    # 2. Likelihood for the BBS data 
+    #############################################################
+    
+    for (k in 1:ncounts){
+    	log(lambda[k]) <- log(ntot[year[k],strat[k]]) + obs[obser[k]] + eta*firstyr[k] + noise[k]
     	count[k] ~ dpois(lambda[k])
-}
+    }
     
-############################################################
-# 3. Likelihood for the CJS-MAPS data
-############################################################
+    ############################################################
+    # 3. Likelihood for the CJS-MAPS data
+    ############################################################
     
-for(i in 1:nind){
-for(t in 1:first[i]){
+    for(i in 1:nind){
+    	for(t in 1:first[i]){
     		## Define latent state at first capture
     		z[i,t] ~ dbern(1)
     	}#t
@@ -102,48 +106,44 @@ for(t in 1:first[i]){
     		# Observation process
     		mu1[i,t] <- p[i,t-1]*z[i,t]
     		y[i,t] ~ dbern(mu1[i,t])
-}#t
-}#i
+    	}#t
+    }#i
 
-############################################################
-# 3. Population process model
-############################################################
+    ############################################################
+    # 3. Population process model
+    ############################################################
 
-for (s in 1:nstrata){
-for (t in 2:nyears){
-		ntot[t,s] <- nsurv[t,s] + nrecr[t,s]
+    for (s in 1:nstrata){
+    	for (t in 2:nyears){
+     		ntot[t,s] <- nsurv[t,s] + nrecr[t,s]
     		nsurv[t,s] ~ dbin(phi0[t-1], ntot[t-1,s])
     		nrecr[t,s] ~ dpois(mn.recr[t,s])
     		mn.recr[t,s] <- f[t-1]*ntot[t-1,s]
     	}
     }
 
-############################################################
-# 4. Derived parameters
-############################################################
+    ############################################################
+    # 5. Derived parameters
+    ############################################################
 
-# Stratum-specific annual indices #
-# areaweight: constant weights attributed to sub-units (states) within total area (BCR)
-totareaweight <- sum(areaweight[1:nstrata]) # Sum of the different weights for different areas
-
-for (i in 1:nstrata){
-for( t in 1 : nyears ) {
-    		n[i,t] <- nonzeroweight[i]*exp(log(ntot[t,i]) + 0.5*sdnoise*sdnoise + 0.5*sdobs*sdobs)
-    		N[i,t] <- areaweight[i]*n[i,t]/totareaweight
+	# Stratum-specific annual indices #
+	# areaweight: constant weights attributed to sub-units (states) within total area (BCR)
+    totareaweight <- sum(areaweight[1:nstrata]) 
+    for (i in 1:nstrata){
+    	for( t in 1 : nyears ) {
+    		n[i,t] <- nonzeroweight[i]*exp(log(ntot[t,i]))
+     		N[i,t] <- areaweight[i]*n[i,t]/totareaweight
     	}
-}
+    }
+	# Population trend over the total time period by strata, i.e., states: VA, MA, NJ etc.
+    for( i in 1 : nstrata ) {
+    	B[i] <- pow(n[i,nyears]/n[i,1],1/(nyears-1))
+    }
+	# Total population; composite of populations by strata, i.e., states: states: VA, MA, NJ etc.
+    for( t in 1 : nyears ) {
+    	CompIndex[t] <- sum(N[1:nstrata,t])
+    }
+    # Population trend of the composite (total) population
+    Bbar <- pow(CompIndex[nyears]/CompIndex[1],1/(nyears-1))
 
-# Population trend over the total time period by strata, i.e., states: VA, MA, NJ etc.
-for( i in 1 : nstrata ) {
-B[i] <- pow(n[i,nyears]/n[i,1],1/(nyears-1))
-}
-
-# Total population; composite of populations by strata, i.e., states: states: VA, MA, NJ etc.
-for( t in 1 : nyears ) {
-CompIndex[t] <- sum(N[1:nstrata,t])
-}
-
-# Population trend of the composite (total) population
-Bbar <- pow(CompIndex[nyears]/CompIndex[1],1/(nyears-1))
-
-}#model
+    }#model

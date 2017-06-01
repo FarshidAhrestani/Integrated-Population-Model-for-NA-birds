@@ -3,10 +3,7 @@ JAGS code used to model population dynamics of N.American birds by integrating B
     model{
 
 #########################################################################
-# IPM - Integrated Population Model for BBS & MAPS data            			#
-#												#
-# by												#
-# Farshid S. Ahrestani, James Saracco, John Sauer & Andy Royle				#
+# IPM - Integrated Population Model for BBS & MAPS data            			
 #########################################################################
 
 #######################################################################
